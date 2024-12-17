@@ -1,0 +1,35 @@
+The operation of the warrant officers started at night.
+
+Necheporuk: Calculated the value of item #1: 14 rubles.
+Ivanov: Removed item #1 from the warehouse.
+Petrov: Loaded item #1 into the truck.
+Necheporuk: Calculated the value of item #2: 49 rubles.
+Ivanov: Removed item #2 from the warehouse.
+Petrov: Loaded item #2 into the truck.
+Ivanov: Removed item #3 from the warehouse.
+Petrov: Loaded item #3 into the truck.
+Necheporuk: Calculated the value of item #3: 67 rubles.
+Ivanov: Removed item #4 from the warehouse.
+Petrov: Loaded item #4 into the truck.
+Necheporuk: Calculated the value of item #4: 43 rubles.
+Ivanov: Removed item #5 from the warehouse.
+Petrov: Loaded item #5 into the truck.
+Necheporuk: Calculated the value of item #5: 30 rubles.
+Ivanov: Removed item #6 from the warehouse.
+Petrov: Loaded item #6 into the truck.
+Necheporuk: Calculated the value of item #6: 43 rubles.
+Ivanov: Removed item #7 from the warehouse.
+Petrov: Loaded item #7 into the truck.
+Ivanov: Removed item #8 from the warehouse.
+Petrov: Loaded item #8 into the truck.
+Necheporuk: Calculated the value of item #7: 28 rubles.
+Ivanov: Removed item #9 from the warehouse.
+Petrov: Loaded item #9 into the truck.
+Ivanov: Removed item #10 from the warehouse.
+Petrov: Loaded item #10 into the truck.
+Necheporuk: Calculated the value of item #8: 71 rubles.
+Necheporuk: Calculated the value of item #9: 38 rubles.
+Necheporuk: Calculated the value of item #10: 90 rubles.
+
+All items have been successfully loaded.
+Total value of the loot: 473 rubles.
