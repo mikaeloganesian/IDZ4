@@ -16,7 +16,7 @@
 */
 
 // A file with the appropriate name is saved in the cmake-build-debug/ folder
-
+// When entering the file name, enter with ".txt"
 #include <iostream>
 #include <pthread.h>
 #include <unistd.h> // For sleep
