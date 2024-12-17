@@ -1,133 +1,179 @@
+/*
+Оганесян Микаэл, БПИ-234. Вариант - 30
+    Условие варианта:
+         Темной-темной ночью прапорщики Иванов, Петров и Нечепорук
+         занимаются хищением военного имущества со склада родной
+         военной части. Будучи умными людьми и отличниками боевой
+         и строевой подготовки, прапорщики ввели разделение труда.
+         Иванов выносит имущество со склада и передает его в руки
+         Петрову, который грузит его в грузовик. Нечепорук стоит
+         на шухере и заодно подсчитывает рыночную стоимость добычи
+         поле погрузки в грузовик очередной партии похищенного.
+         Требуется составить многопоточное приложение, моделирующее
+         деятельность прапорщиков–потоков. Необходимо учесть случайное
+         время выполнения каждым прапорщиком своей боевой задачи
+         и организовать в программе корректную их синхронизацию.
+*/
+
+// A file with the appropriate name is saved in the cmake-build-debug/ folder
+
 #include <iostream>
 #include <pthread.h>
-#include <cstdlib>
-#include <ctime>
-#include <unistd.h>
+#include <unistd.h> // For sleep
+#include <cstdlib> // For rand() and srand()
+#include <ctime>   // For time()
+#include <fstream> // For file handling
 
-// Структура для передачи данных между потоками
-struct ThreadData {
-    int item_value; // Рыночная стоимость добычи
-    bool item_ready; // Флаг, указывающий, что предмет готов
-    pthread_mutex_t mutex; // Мьютекс для синхронизации
-    pthread_cond_t cond_ivanov; // Условные переменные для синхронизации
-    pthread_cond_t cond_petrov;
-    pthread_cond_t cond_necheporuk;
-};
+using namespace std;
 
-// Функция для генерации случайного числа в заданном диапазоне
-int random_in_range(int min, int max) {
-    return min + rand() % (max - min + 1);
+// Global variables and synchronization
+pthread_mutex_t mtx;          // Mutex for synchronizing access to shared data
+pthread_cond_t item_ready;    // Condition variable for thread communication
+bool is_item_ready = false;   // Flag indicating that an item is ready for transfer
+
+int total_value = 0;          // Total value of loaded items
+int item_counter = 0;         // Counter for loaded items
+int TOTAL_ITEMS;              // Number of items to process
+
+// Delay time ranges
+int ivanov_min_time, ivanov_max_time;
+int petrov_min_time, petrov_max_time;
+int necheporuk_min_time, necheporuk_max_time;
+
+// Item value range
+int value_min, value_max;
+
+// File stream for saving program results
+ofstream result_file;
+
+// Generate random delay time within a given range
+int get_random_time(int min_time, int max_time) {
+    return rand() % (max_time - min_time + 1) + min_time;
 }
 
-// Функция для прапорщика Иванова
-void* ivanov(void* arg) {
-    ThreadData* data = (ThreadData*)arg;
-    std::cout << "Иванов начал работу." << std::endl;
+// Function for Ivanov's thread
+void* Ivanov(void* arg) {
+    for (int i = 0; i < TOTAL_ITEMS; i++) {
+        sleep(get_random_time(ivanov_min_time, ivanov_max_time)); // Simulate item removal time
+        pthread_mutex_lock(&mtx);   // Lock the mutex
+        cout << "Ivanov: Removed item #" << i + 1 << " from the warehouse." << endl;
+        result_file << "Ivanov: Removed item #" << i + 1 << " from the warehouse." << endl;
 
-    for (int i = 0; i < 5; ++i) { // Моделируем вынос 5 партий имущества
-        // Случайное время выполнения задачи
-        int time = random_in_range(1, 3);
-        sleep(time);
+        is_item_ready = true;         // Set the item as ready for transfer
+        pthread_cond_signal(&item_ready); // Signal Petrov that the item is ready
 
-        // Захватываем мьютекс и обновляем данные
-        pthread_mutex_lock(&data->mutex);
-        data->item_value = random_in_range(100, 500); // Случайная стоимость предмета
-        data->item_ready = true;
-        std::cout << "Иванов вынес партию имущества стоимостью " << data->item_value << " руб." << std::endl;
-
-        // Сигнализируем Петрову, что предмет готов
-        pthread_cond_signal(&data->cond_petrov);
-        pthread_mutex_unlock(&data->mutex);
+        pthread_mutex_unlock(&mtx); // Unlock the mutex
     }
-
-    std::cout << "Иванов закончил работу." << std::endl;
-    pthread_exit(NULL);
+    pthread_exit(nullptr);
 }
 
-// Функция для прапорщика Петрова
-void* petrov(void* arg) {
-    ThreadData* data = (ThreadData*)arg;
-    std::cout << "Петров начал работу." << std::endl;
-
-    for (int i = 0; i < 5; ++i) { // Моделируем погрузку 5 партий имущества
-        // Захватываем мьютекс и ждем, пока Иванов вынесет предмет
-        pthread_mutex_lock(&data->mutex);
-        while (!data->item_ready) {
-            pthread_cond_wait(&data->cond_petrov, &data->mutex);
+// Function for Petrov's thread
+void* Petrov(void* arg) {
+    for (int i = 0; i < TOTAL_ITEMS; i++) {
+        pthread_mutex_lock(&mtx);
+        while (!is_item_ready) {  // Wait for Ivanov's signal
+            pthread_cond_wait(&item_ready, &mtx);
         }
 
-        // Случайное время выполнения задачи
-        int time = random_in_range(1, 3);
-        sleep(time);
+        sleep(get_random_time(petrov_min_time, petrov_max_time)); // Simulate item loading time
+        cout << "Petrov: Loaded item #" << i + 1 << " into the truck." << endl;
+        result_file << "Petrov: Loaded item #" << i + 1 << " into the truck." << endl;
 
-        std::cout << "Петров погрузил партию имущества стоимостью " << data->item_value << " руб." << std::endl;
-        data->item_ready = false;
-
-        // Сигнализируем Нечепоруку, что предмет погружен
-        pthread_cond_signal(&data->cond_necheporuk);
-        pthread_mutex_unlock(&data->mutex);
+        is_item_ready = false; // Reset the item ready flag
+        item_counter++;        // Increment the loaded item counter
+        pthread_mutex_unlock(&mtx);
     }
-
-    std::cout << "Петров закончил работу." << std::endl;
-    pthread_exit(NULL);
+    pthread_exit(nullptr);
 }
 
-// Функция для прапорщика Нечепорука
-void* necheporuk(void* arg) {
-    ThreadData* data = (ThreadData*)arg;
-    std::cout << "Нечепорук начал работу." << std::endl;
+// Function for Necheporuk's thread
+void* Necheporuk(void* arg) {
+    for (int i = 0; i < TOTAL_ITEMS; i++) {
+        pthread_mutex_lock(&mtx);
 
-    int total_value = 0;
+        // Calculate the market value of the loaded item
+        int item_value = get_random_time(value_min, value_max);
+        total_value += item_value;
 
-    for (int i = 0; i < 5; ++i) { // Моделируем подсчет стоимости 5 партий имущества
-        // Захватываем мьютекс и ждем, пока Петров погрузит предмет
-        pthread_mutex_lock(&data->mutex);
-        while (data->item_ready) {
-            pthread_cond_wait(&data->cond_necheporuk, &data->mutex);
-        }
+        cout << "Necheporuk: Calculated the value of item #" << i + 1
+             << ": " << item_value << " rubles." << endl;
+        result_file << "Necheporuk: Calculated the value of item #" << i + 1
+                    << ": " << item_value << " rubles." << endl;
 
-        // Случайное время выполнения задачи
-        int time = random_in_range(1, 3);
-        sleep(time);
-
-        total_value += data->item_value;
-        std::cout << "Нечепорук подсчитал, что общая стоимость добычи: " << total_value << " руб." << std::endl;
-
-        pthread_mutex_unlock(&data->mutex);
+        pthread_mutex_unlock(&mtx);
+        sleep(get_random_time(necheporuk_min_time, necheporuk_max_time)); // Simulate time on lookout
     }
 
-    std::cout << "Нечепорук закончил работу." << std::endl;
-    pthread_exit(NULL);
+    pthread_exit(nullptr);
 }
 
 int main() {
-    srand(time(NULL)); // Инициализация генератора случайных чисел
+    srand(time(0)); // Initialize random number generator
+    string filename;
+    cout << "Enter the filename to save the program's operation history: ";
+    cin >> filename;
+    if (filename.empty()) {
+        filename = "results.txt";
+    }
 
-    // Инициализация структуры данных
-    ThreadData data;
-    data.item_ready = false;
-    pthread_mutex_init(&data.mutex, NULL);
-    pthread_cond_init(&data.cond_ivanov, NULL);
-    pthread_cond_init(&data.cond_petrov, NULL);
-    pthread_cond_init(&data.cond_necheporuk, NULL);
+    // Open the file for writing results
+    result_file.open(filename);
+    if (!result_file) {
+        cerr << "Error: Unable to open the file for writing results." << endl;
+        return 1;
+    }
 
-    // Создание потоков
-    pthread_t thread_ivanov, thread_petrov, thread_necheporuk;
-    pthread_create(&thread_ivanov, NULL, ivanov, (void*)&data);
-    pthread_create(&thread_petrov, NULL, petrov, (void*)&data);
-    pthread_create(&thread_necheporuk, NULL, necheporuk, (void*)&data);
+    // User input for program configuration
+    cout << "Enter the number of items: ";
+    cin >> TOTAL_ITEMS;
 
-    // Ожидание завершения потоков
-    pthread_join(thread_ivanov, NULL);
-    pthread_join(thread_petrov, NULL);
-    pthread_join(thread_necheporuk, NULL);
+    cout << "Enter Ivanov's work time range (minimum and maximum in seconds): ";
+    cin >> ivanov_min_time >> ivanov_max_time;
 
-    // Уничтожение мьютексов и условных переменных
-    pthread_mutex_destroy(&data.mutex);
-    pthread_cond_destroy(&data.cond_ivanov);
-    pthread_cond_destroy(&data.cond_petrov);
-    pthread_cond_destroy(&data.cond_necheporuk);
+    cout << "Enter Petrov's work time range (minimum and maximum in seconds): ";
+    cin >> petrov_min_time >> petrov_max_time;
 
-    std::cout << "Программа завершена." << std::endl;
+    cout << "Enter Necheporuk's work time range (minimum and maximum in seconds): ";
+    cin >> necheporuk_min_time >> necheporuk_max_time;
+
+    cout << "Enter the item value range (minimum and maximum in rubles): ";
+    cin >> value_min >> value_max;
+
+    // Initialize mutex and condition variable
+    pthread_mutex_init(&mtx, nullptr);
+    pthread_cond_init(&item_ready, nullptr);
+
+    pthread_t ivanov_thread, petrov_thread, necheporuk_thread;
+
+    cout << "\nThe operation of the smart warrant officers has started.\n" << endl;
+    result_file << "The operation of the warrant officers started at night.\n" << endl;
+
+    // Create threads
+    pthread_create(&ivanov_thread, nullptr, Ivanov, nullptr);
+    pthread_create(&petrov_thread, nullptr, Petrov, nullptr);
+    pthread_create(&necheporuk_thread, nullptr, Necheporuk, nullptr);
+
+    // Wait for threads to finish
+    pthread_join(ivanov_thread, nullptr);
+    pthread_join(petrov_thread, nullptr);
+    pthread_join(necheporuk_thread, nullptr);
+
+    // Program conclusion
+    cout << "\nAll items have been successfully loaded." << endl;
+    cout << "Total value of the loot: " << total_value << " rubles." << endl;
+
+    result_file << "\nAll items have been successfully loaded." << endl;
+    result_file << "Total value of the loot: " << total_value << " rubles." << endl;
+
+    // Close the file
+    result_file.close();
+
+    // Destroy the mutex and condition variable
+    pthread_mutex_destroy(&mtx);
+    pthread_cond_destroy(&item_ready);
+
+    cout << "End of program execution." << endl;
     return 0;
 }
+
+
